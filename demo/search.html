@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - Web Crawler</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        nav {
+            background: #333;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        nav a:hover {
+            color: #4CAF50;
+        }
+        nav a.active {
+            color: #4CAF50;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .search-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .search-form {
+            display: flex;
+            gap: 10px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .search-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .search-btn:hover {
+            background: #45a049;
+        }
+        .results-info {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .result-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result-url {
+            color: #1a73e8;
+            font-size: 18px;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .result-url:hover {
+            text-decoration: underline;
+        }
+        .result-meta {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        .result-meta span {
+            margin-right: 15px;
+        }
+        .result-origin {
+            color: #006621;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .pagination button {
+            padding: 10px 20px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .pagination button:hover:not(:disabled) {
+            background: #f5f5f5;
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination span {
+            color: #666;
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .stats-bar {
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="/crawler">New Crawler</a>
+            <a href="/status">Status Dashboard</a>
+            <a href="/" class="active">Search</a>
+        </nav>
+
+        <h1>Web Search Engine</h1>
+
+        <div id="statsBar" class="stats-bar">
+            <span>Index: Loading...</span>
+        </div>
+
+        <div class="search-box">
+            <form class="search-form" onsubmit="performSearch(event)">
+                <input type="text" id="searchInput" class="search-input"
+                       placeholder="Enter search query..." autofocus>
+                <button type="submit" class="search-btn">Search</button>
+            </form>
+        </div>
+
+        <div id="resultsContainer"></div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let currentQuery = '';
+        const pageSize = 10;
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/stats');
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('statsBar').innerHTML = `
+                        <span>Total indexed entries: <strong>${data.stats.total_entries.toLocaleString()}</strong></span>
+                    `;
+                }
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+
+        async function performSearch(event) {
+            if (event) event.preventDefault();
+
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            currentQuery = query;
+            currentPage = 1;
+            await fetchResults();
+        }
+
+        async function fetchResults() {
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                const response = await fetch(
+                    `/search?q=${encodeURIComponent(currentQuery)}&page=${currentPage}&page_size=${pageSize}&detailed=true`
+                );
+                const data = await response.json();
+
+                if (data.success) {
+                    renderResults(data);
+                }
+            } catch (err) {
+                container.innerHTML = '<div class="no-results">Error performing search</div>';
+                console.error('Search error:', err);
+            }
+        }
+
+        function renderResults(data) {
+            const container = document.getElementById('resultsContainer');
+
+            if (data.total === 0) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        No results found for "<strong>${escapeHtml(data.query)}</strong>"
+                    </div>
+                `;
+                return;
+            }
+
+            const resultsHtml = data.results.map(r => `
+                <div class="result-item">
+                    <a href="${escapeHtml(r.relevant_url)}" class="result-url" target="_blank">
+                        ${escapeHtml(r.relevant_url)}
+                    </a>
+                    <div class="result-origin">
+                        Found via: ${escapeHtml(r.origin_url)}
+                    </div>
+                    <div class="result-meta">
+                        <span>Depth: ${r.depth}</span>
+                        <span>Score: ${r.score}</span>
+                        ${r.matched_words ? `<span>Matched: ${r.matched_words.join(', ')}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            const paginationHtml = `
+                <div class="pagination">
+                    <button onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>
+                        Previous
+                    </button>
+                    <span>Page ${data.page} of ${data.total_pages}</span>
+                    <button onclick="goToPage(${currentPage + 1})" ${currentPage >= data.total_pages ? 'disabled' : ''}>
+                        Next
+                    </button>
+                </div>
+            `;
+
+            container.innerHTML = `
+                <div class="results-info">
+                    Found <strong>${data.total}</strong> results for "<strong>${escapeHtml(data.query)}</strong>"
+                </div>
+                ${resultsHtml}
+                ${data.total_pages > 1 ? paginationHtml : ''}
+            `;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            fetchResults();
+            window.scrollTo(0, 0);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Check for query in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialQuery = urlParams.get('q');
+        if (initialQuery) {
+            document.getElementById('searchInput').value = initialQuery;
+            currentQuery = initialQuery;
+            fetchResults();
+        }
+
+        // Load stats on page load
+        loadStats();
+    </script>
+</body>
+</html>

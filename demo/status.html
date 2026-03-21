@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crawler Status - Web Crawler</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        nav {
+            background: #333;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        nav a:hover {
+            color: #4CAF50;
+        }
+        nav a.active {
+            color: #4CAF50;
+        }
+        h1, h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .crawler-list {
+            display: grid;
+            gap: 15px;
+        }
+        .crawler-item {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .crawler-item:hover {
+            border-color: #4CAF50;
+        }
+        .crawler-item.selected {
+            border-color: #4CAF50;
+            background: #f8fff8;
+        }
+        .crawler-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .crawler-id {
+            font-family: monospace;
+            font-size: 14px;
+            color: #666;
+        }
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .status-running { background: #e3f2fd; color: #1976d2; }
+        .status-paused { background: #fff3e0; color: #f57c00; }
+        .status-completed { background: #e8f5e9; color: #388e3c; }
+        .status-stopped { background: #ffebee; color: #d32f2f; }
+        .status-idle { background: #f5f5f5; color: #757575; }
+        .status-error { background: #ffebee; color: #d32f2f; }
+        .crawler-origin {
+            color: #333;
+            word-break: break-all;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .btn-pause { background: #ff9800; color: white; }
+        .btn-resume { background: #4CAF50; color: white; }
+        .btn-stop { background: #f44336; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .logs-container {
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+        .log-time {
+            color: #888;
+        }
+        .no-crawlers {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .detail-section {
+            display: none;
+        }
+        .detail-section.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="/crawler">New Crawler</a>
+            <a href="/status" class="active">Status Dashboard</a>
+            <a href="/">Search</a>
+        </nav>
+
+        <h1>Crawler Status Dashboard</h1>
+
+        <div class="card">
+            <h2>Active Crawlers</h2>
+            <div id="crawlerList" class="crawler-list">
+                <div class="no-crawlers">Loading crawlers...</div>
+            </div>
+        </div>
+
+        <div id="detailSection" class="card detail-section">
+            <h2>Crawler Details</h2>
+            <div id="crawlerDetails"></div>
+
+            <h2 style="margin-top: 20px;">Logs</h2>
+            <div id="logsContainer" class="logs-container">
+                <div class="log-entry">Waiting for logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedCrawlerId = null;
+        let pollInterval = null;
+
+        // Get crawler ID from URL if provided
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialId = urlParams.get('id');
+
+        async function fetchCrawlers() {
+            try {
+                const response = await fetch('/crawler/list');
+                const data = await response.json();
+                if (data.success) {
+                    renderCrawlerList(data.crawlers);
+                }
+            } catch (err) {
+                console.error('Error fetching crawlers:', err);
+            }
+        }
+
+        function renderCrawlerList(crawlers) {
+            const container = document.getElementById('crawlerList');
+
+            if (crawlers.length === 0) {
+                container.innerHTML = '<div class="no-crawlers">No crawlers found. <a href="/crawler">Create one</a></div>';
+                return;
+            }
+
+            container.innerHTML = crawlers.map(c => `
+                <div class="crawler-item ${c.crawler_id === selectedCrawlerId ? 'selected' : ''}"
+                     onclick="selectCrawler('${c.crawler_id}')">
+                    <div class="crawler-header">
+                        <span class="crawler-id">${c.crawler_id}</span>
+                        <span class="status-badge status-${c.state}">${c.state}</span>
+                    </div>
+                    <div class="crawler-origin">${c.origin}</div>
+                </div>
+            `).join('');
+
+            // Auto-select initial crawler if provided
+            if (initialId && !selectedCrawlerId) {
+                selectCrawler(initialId);
+            }
+        }
+
+        async function selectCrawler(crawlerId) {
+            selectedCrawlerId = crawlerId;
+            document.getElementById('detailSection').classList.add('visible');
+
+            // Update selection UI
+            document.querySelectorAll('.crawler-item').forEach(el => {
+                el.classList.toggle('selected', el.onclick.toString().includes(crawlerId));
+            });
+
+            // Fetch details
+            await fetchCrawlerDetails(crawlerId);
+            await fetchCrawlerLogs(crawlerId);
+
+            // Start polling
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => {
+                fetchCrawlerDetails(crawlerId);
+                fetchCrawlerLogs(crawlerId);
+            }, 2000);
+        }
+
+        async function fetchCrawlerDetails(crawlerId) {
+            try {
+                const response = await fetch(`/crawler/status/${crawlerId}`);
+                const data = await response.json();
+                if (data.success) {
+                    renderCrawlerDetails(data.status);
+                }
+            } catch (err) {
+                console.error('Error fetching details:', err);
+            }
+        }
+
+        function renderCrawlerDetails(status) {
+            const stats = status.stats || {};
+            const config = status.config || {};
+
+            document.getElementById('crawlerDetails').innerHTML = `
+                <div style="margin-bottom: 15px;">
+                    <strong>Origin:</strong> ${status.origin}<br>
+                    <strong>State:</strong> <span class="status-badge status-${status.state}">${status.state}</span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.urls_visited || 0}</div>
+                        <div class="stat-label">URLs Visited</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.urls_indexed || 0}</div>
+                        <div class="stat-label">URLs Indexed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.words_indexed || 0}</div>
+                        <div class="stat-label">Words Indexed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${status.queue_size || 0}</div>
+                        <div class="stat-label">Queue Size</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.errors || 0}</div>
+                        <div class="stat-label">Errors</div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-pause" onclick="pauseCrawler('${status.crawler_id}')"
+                            ${status.state !== 'running' ? 'disabled' : ''}>Pause</button>
+                    <button class="btn btn-resume" onclick="resumeCrawler('${status.crawler_id}')"
+                            ${status.state !== 'paused' ? 'disabled' : ''}>Resume</button>
+                    <button class="btn btn-stop" onclick="stopCrawler('${status.crawler_id}')"
+                            ${!['running', 'paused'].includes(status.state) ? 'disabled' : ''}>Stop</button>
+                </div>
+            `;
+        }
+
+        async function fetchCrawlerLogs(crawlerId) {
+            try {
+                const response = await fetch(`/crawler/logs/${crawlerId}?last_n=50`);
+                const data = await response.json();
+                if (data.success) {
+                    renderLogs(data.logs);
+                }
+            } catch (err) {
+                console.error('Error fetching logs:', err);
+            }
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('logsContainer');
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="log-entry">No logs yet...</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => {
+                const match = log.match(/^\[([^\]]+)\]\s*(.*)/);
+                if (match) {
+                    return `<div class="log-entry"><span class="log-time">${match[1]}</span> ${match[2]}</div>`;
+                }
+                return `<div class="log-entry">${log}</div>`;
+            }).join('');
+
+            // Auto-scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function pauseCrawler(crawlerId) {
+            await fetch(`/crawler/pause/${crawlerId}`, { method: 'POST' });
+            fetchCrawlerDetails(crawlerId);
+            fetchCrawlers();
+        }
+
+        async function resumeCrawler(crawlerId) {
+            await fetch(`/crawler/resume/${crawlerId}`, { method: 'POST' });
+            fetchCrawlerDetails(crawlerId);
+            fetchCrawlers();
+        }
+
+        async function stopCrawler(crawlerId) {
+            await fetch(`/crawler/stop/${crawlerId}`, { method: 'POST' });
+            fetchCrawlerDetails(crawlerId);
+            fetchCrawlers();
+        }
+
+        // Initial load
+        fetchCrawlers();
+        setInterval(fetchCrawlers, 5000);
+    </script>
+</body>
+</html>
