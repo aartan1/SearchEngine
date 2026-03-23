@@ -1,0 +1,16 @@
+[2026-03-22 14:45:51] Crawler started with ID: 1774179951_13896
+ite.com/
+[2026-03-22 14:45:51] Indexed: Scrape This Site | A public sandbox for learning w (28 words, 5 links)
+[2026-03-22 14:45:52] Indexed: Login | Scrape This Site | A public sandbox for le (26 words, 5 links)
+[2026-03-22 14:45:53] Indexed: Sign Up | Scrape This Site | A public sandbox for  (659 words, 7 links)
+[2026-03-22 14:45:54] Indexed: Frequently Asked Questions | Scrape This Site | A  (150 words, 6 links)
+[2026-03-22 14:45:55] Indexed: Learn Web Scraping | Scrape This Site | A public s (170 words, 10 links)
+[2026-03-22 14:45:57] Indexed: Gumroad (0 words, 0 links)
+[2026-03-22 14:45:58] Indexed: Gumroad (0 words, 0 links)
+[2026-03-22 14:46:00] Indexed: Oscar Winning Films: AJAX and Javascript | Scrape  (114 words, 6 links)
+[2026-03-22 14:46:01] Indexed: Advanced Topics: Real World Challenges You'll Enco (159 words, 8 links)
+[2026-03-22 14:46:02] Indexed: Hockey Teams: Forms, Searching and Pagination | Sc (347 words, 30 links)
+[2026-03-22 14:46:03] Indexed: Turtles All the Way Down: Frames & iFrames | Scrap (119 words, 6 links)
+[2026-03-22 14:46:04] Indexed: Countries of the World: A Simple Example | Scrape  (2263 words, 6 links)
+[2026-03-22 14:46:04] Completed: queue empty
+[2026-03-22 14:46:04] Crawl finished. Stats: {'urls_visited': 12, 'urls_indexed': 10, 'words_indexed': 2198, 'errors': 0, 'start_time': '2026-03-22 14:45:51', 'end_time': '2026-03-22 14:46:04'}

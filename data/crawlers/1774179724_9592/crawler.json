@@ -1,0 +1,17 @@
+{
+  "crawler_id": "1774179724_9592",
+  "origin": "https://open.spotify.com/",
+  "max_depth": 3,
+  "hit_rate": 2.0,
+  "max_queue_capacity": 1000,
+  "max_urls_to_visit": 100,
+  "state": "completed",
+  "stats": {
+    "urls_visited": 1,
+    "urls_indexed": 0,
+    "words_indexed": 0,
+    "errors": 0,
+    "start_time": "2026-03-22 14:42:04",
+    "end_time": "2026-03-22 14:42:05"
+  }
+}

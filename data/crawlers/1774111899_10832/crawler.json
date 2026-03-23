@@ -1,0 +1,17 @@
+{
+  "crawler_id": "1774111899_10832",
+  "origin": "https://books.toscrape.com",
+  "max_depth": 5,
+  "hit_rate": 2.0,
+  "max_queue_capacity": 10000,
+  "max_urls_to_visit": 10000,
+  "state": "completed",
+  "stats": {
+    "urls_visited": 0,
+    "urls_indexed": 0,
+    "words_indexed": 0,
+    "errors": 0,
+    "start_time": "2026-03-21 19:51:39",
+    "end_time": "2026-03-21 19:51:39"
+  }
+}

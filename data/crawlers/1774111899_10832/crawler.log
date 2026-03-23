@@ -1,0 +1,4 @@
+[2026-03-21 19:51:39] Crawler started with ID: 1774111899_10832
+com
+[2026-03-21 19:51:39] Completed: queue empty
+[2026-03-21 19:51:39] Crawl finished. Stats: {'urls_visited': 0, 'urls_indexed': 0, 'words_indexed': 0, 'errors': 0, 'start_time': '2026-03-21 19:51:39', 'end_time': '2026-03-21 19:51:39'}
