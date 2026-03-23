@@ -1,0 +1,17 @@
+{
+  "crawler_id": "1774265130_2000",
+  "origin": "https://shiftdelete.net/",
+  "max_depth": 2,
+  "hit_rate": 10.0,
+  "max_queue_capacity": 1000,
+  "max_urls_to_visit": 1000,
+  "state": "completed",
+  "stats": {
+    "urls_visited": 406,
+    "urls_indexed": 401,
+    "words_indexed": 183794,
+    "errors": 22,
+    "start_time": "2026-03-23 14:25:30",
+    "end_time": "2026-03-23 14:33:21"
+  }
+}
