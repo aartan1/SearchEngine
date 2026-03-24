@@ -228,24 +228,22 @@ def api_search():
     Search the index.
 
     Query params:
-        q: Search query
+        q or query: Search query
         page: Page number (default 1)
         page_size: Results per page (default 10)
-        detailed: Include scores (default false)
+        sortBy: Sorting method (default 'relevance' - sorts by frequency)
     """
-    query = request.args.get('q', '')
+    query = request.args.get('query', '') or request.args.get('q', '')
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
-    detailed = request.args.get('detailed', 'false').lower() == 'true'
+    sort_by = request.args.get('sortBy', 'relevance')
 
-    if detailed:
-        result = search_with_details(query, page=page, page_size=page_size)
-    else:
-        result = search(query, page=page, page_size=page_size)
+    result = search_with_details(query, page=page, page_size=page_size)
 
     return jsonify({
         'success': True,
         'query': query,
+        'sortBy': sort_by,
         **result
     })
 
