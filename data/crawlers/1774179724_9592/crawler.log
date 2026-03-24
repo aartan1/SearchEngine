@@ -1,5 +1,0 @@
-[2026-03-22 14:42:04] Starting crawl from https://open.spotify.com/
-[2026-03-22 14:42:04] Crawler started with ID: 1774179724_9592
-[2026-03-22 14:42:05] Indexed: Spotify - Web Player: Music for everyone (0 words, 0 links)
-[2026-03-22 14:42:05] Completed: queue empty
-[2026-03-22 14:42:05] Crawl finished. Stats: {'urls_visited': 1, 'urls_indexed': 0, 'words_indexed': 0, 'errors': 0, 'start_time': '2026-03-22 14:42:04', 'end_time': '2026-03-22 14:42:05'}

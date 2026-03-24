@@ -1,4 +1,0 @@
-[2026-03-23 14:18:13] Starting crawl from https://www.wikipedia.org
-[2026-03-23 14:18:13] Crawler started with ID: 1774264693_15368
-[2026-03-23 14:18:13] Completed: queue empty
-[2026-03-23 14:18:13] Crawl finished. Stats: {'urls_visited': 0, 'urls_indexed': 0, 'words_indexed': 0, 'errors': 0, 'start_time': '2026-03-23 14:18:13', 'end_time': '2026-03-23 14:18:13'}

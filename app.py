@@ -21,8 +21,11 @@ from services.crawler_service import (
     pause_crawler,
     resume_crawler,
     stop_crawler,
-    get_all_crawlers
+    get_all_crawlers,
+    get_resumable_crawlers,
+    resume_interrupted_crawler
 )
+from utils.crawler_job import clear_inactive_crawlers, clear_all_crawlers
 from services.search_service import search, search_with_details, get_index_stats
 from utils.storage import clear_visited_urls, clear_visited_urls_by_domain
 
@@ -41,7 +44,7 @@ def api_create_crawler():
 
         origin = data.get('origin', '')
         max_depth = int(data.get('max_depth', 2))
-        hit_rate = float(data.get('hit_rate', 1.0))
+        hit_rate = float(data.get('hit_rate', 50.0))
         max_queue_capacity = int(data.get('max_queue_capacity', 1000))
         max_urls_to_visit = int(data.get('max_urls_to_visit', 100))
 
@@ -116,12 +119,9 @@ def api_pause_crawler(crawler_id):
 
 @app.route('/crawler/resume/<crawler_id>', methods=['POST'])
 def api_resume_crawler(crawler_id):
-    """Resume a paused crawler."""
-    success = resume_crawler(crawler_id)
-    return jsonify({
-        'success': success,
-        'message': 'Crawler resumed' if success else 'Could not resume crawler'
-    })
+    """Resume a paused or stopped crawler."""
+    result = resume_crawler(crawler_id)
+    return jsonify(result)
 
 
 @app.route('/crawler/stop/<crawler_id>', methods=['POST'])
@@ -157,6 +157,65 @@ def api_clear_visited():
         'cleared': count,
         'message': message
     })
+
+
+@app.route('/crawler/clear-registry', methods=['POST'])
+def api_clear_registry():
+    """
+    Clear crawler registry (remove inactive/deleted crawlers from memory).
+
+    Body params:
+        all: (optional) If true, clear all crawlers from registry
+    """
+    data = request.get_json() or {}
+    clear_all = data.get('all', False)
+
+    if clear_all:
+        count = clear_all_crawlers()
+        message = f'Cleared all {count} crawlers from registry'
+    else:
+        count = clear_inactive_crawlers()
+        message = f'Cleared {count} inactive crawlers from registry'
+
+    return jsonify({
+        'success': True,
+        'cleared': count,
+        'message': message
+    })
+
+
+@app.route('/crawler/resumable', methods=['GET'])
+def api_resumable_crawlers():
+    """
+    List crawlers that can be resumed after interruption.
+
+    These are crawlers that were running or paused when the server was stopped.
+    """
+    crawlers = get_resumable_crawlers()
+    return jsonify({
+        'success': True,
+        'resumable': crawlers
+    })
+
+
+@app.route('/crawler/resume-interrupted/<crawler_id>', methods=['POST'])
+def api_resume_interrupted(crawler_id):
+    """
+    Resume an interrupted crawler from its saved state.
+
+    This restores the queue and stats, then continues crawling.
+    """
+    status = resume_interrupted_crawler(crawler_id)
+    if status:
+        return jsonify({
+            'success': True,
+            'message': 'Crawler resumed from saved state',
+            'crawler': status
+        })
+    return jsonify({
+        'success': False,
+        'error': 'Crawler not found or cannot be resumed'
+    }), 404
 
 
 # =============================================================================

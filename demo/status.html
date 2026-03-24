@@ -174,6 +174,12 @@
 
         <h1>Crawler Status Dashboard</h1>
 
+        <div id="resumableSection" class="card" style="display: none; border-left: 4px solid #ff9800;">
+            <h2 style="color: #f57c00;">Interrupted Crawlers</h2>
+            <p style="color: #666; margin-bottom: 15px;">These crawlers were interrupted and can be resumed from their saved state.</p>
+            <div id="resumableList" class="crawler-list"></div>
+        </div>
+
         <div class="card">
             <h2>Active Crawlers</h2>
             <div id="crawlerList" class="crawler-list">
@@ -212,6 +218,57 @@
             }
         }
 
+        async function fetchResumableCrawlers() {
+            try {
+                const response = await fetch('/crawler/resumable');
+                const data = await response.json();
+                if (data.success && data.resumable.length > 0) {
+                    renderResumableList(data.resumable);
+                    document.getElementById('resumableSection').style.display = 'block';
+                } else {
+                    document.getElementById('resumableSection').style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error fetching resumable crawlers:', err);
+            }
+        }
+
+        function renderResumableList(crawlers) {
+            const container = document.getElementById('resumableList');
+            container.innerHTML = crawlers.map(c => `
+                <div class="crawler-item" style="border-color: #ff9800;">
+                    <div class="crawler-header">
+                        <span class="crawler-id">${c.crawler_id}</span>
+                        <span class="status-badge status-${c.state}">${c.state} (interrupted)</span>
+                    </div>
+                    <div class="crawler-origin">${c.origin}</div>
+                    <div style="margin-top: 10px; font-size: 13px; color: #666;">
+                        Visited: ${c.stats?.urls_visited || 0} URLs
+                    </div>
+                    <button class="btn btn-resume" style="margin-top: 10px;"
+                            onclick="resumeInterruptedCrawler('${c.crawler_id}')">
+                        Resume from Checkpoint
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function resumeInterruptedCrawler(crawlerId) {
+            try {
+                const response = await fetch(`/crawler/resume-interrupted/${crawlerId}`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    fetchCrawlers();
+                    fetchResumableCrawlers();
+                    selectCrawler(crawlerId);
+                } else {
+                    alert('Failed to resume crawler: ' + data.error);
+                }
+            } catch (err) {
+                alert('Error resuming crawler: ' + err.message);
+            }
+        }
+
         function renderCrawlerList(crawlers) {
             const container = document.getElementById('crawlerList');
 
@@ -240,6 +297,7 @@
         async function selectCrawler(crawlerId) {
             selectedCrawlerId = crawlerId;
             document.getElementById('detailSection').classList.add('visible');
+            document.getElementById('logsContainer').innerHTML = '<div class="log-entry">Loading logs...</div>';
 
             // Update selection UI
             document.querySelectorAll('.crawler-item').forEach(el => {
@@ -278,6 +336,7 @@
                 <div style="margin-bottom: 15px;">
                     <strong>Origin:</strong> ${status.origin}<br>
                     <strong>State:</strong> <span class="status-badge status-${status.state}">${status.state}</span>
+                    <span style="margin-left: 15px; color: #666;">Workers: ${config.num_workers || 20}</span>
                 </div>
 
                 <div class="stats-grid">
@@ -315,14 +374,19 @@
         }
 
         async function fetchCrawlerLogs(crawlerId) {
+            console.log('Fetching logs for:', crawlerId);
             try {
                 const response = await fetch(`/crawler/logs/${crawlerId}?last_n=50`);
                 const data = await response.json();
-                if (data.success) {
+                console.log('Logs response:', data);
+                if (data.success && data.logs) {
                     renderLogs(data.logs);
+                } else {
+                    document.getElementById('logsContainer').innerHTML = '<div class="log-entry">Failed to load logs</div>';
                 }
             } catch (err) {
                 console.error('Error fetching logs:', err);
+                document.getElementById('logsContainer').innerHTML = `<div class="log-entry">Error: ${err.message}</div>`;
             }
         }
 
@@ -365,7 +429,14 @@
 
         // Initial load
         fetchCrawlers();
+        fetchResumableCrawlers();
         setInterval(fetchCrawlers, 5000);
+        setInterval(fetchResumableCrawlers, 10000);
+
+        // If crawler ID provided in URL, select it
+        if (initialId) {
+            selectCrawler(initialId);
+        }
     </script>
 </body>
 </html>

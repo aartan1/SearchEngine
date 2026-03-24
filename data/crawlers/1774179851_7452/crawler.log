@@ -1,5 +1,0 @@
-[2026-03-22 14:44:11] Starting crawl from https://www.hepsiburada.com/
-[2026-03-22 14:44:11] Crawler started with ID: 1774179851_7452
-[2026-03-22 14:44:11] Error fetching https://www.hepsiburada.com/: HTTP Error 403: Forbidden
-[2026-03-22 14:44:11] Completed: queue empty
-[2026-03-22 14:44:11] Crawl finished. Stats: {'urls_visited': 0, 'urls_indexed': 0, 'words_indexed': 0, 'errors': 1, 'start_time': '2026-03-22 14:44:11', 'end_time': '2026-03-22 14:44:11'}

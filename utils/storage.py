@@ -36,6 +36,31 @@ _file_locks['numbers'] = threading.Lock()
 # Lock for visited_urls.data
 _visited_urls_lock = threading.Lock()
 
+# Lock for crawler log files
+_crawler_log_lock = threading.Lock()
+
+# In-memory cache for visited URLs (dramatically improves hit rate)
+_visited_urls_cache = None
+_visited_urls_cache_lock = threading.Lock()
+
+
+def _ensure_visited_cache():
+    """Load visited URLs into memory cache if not already loaded."""
+    global _visited_urls_cache
+    if _visited_urls_cache is None:
+        with _visited_urls_cache_lock:
+            if _visited_urls_cache is None:
+                _visited_urls_cache = load_visited_urls_from_disk()
+
+
+def load_visited_urls_from_disk() -> set:
+    """Load all visited URLs from disk into a set."""
+    with _visited_urls_lock:
+        if not VISITED_URLS_FILE.exists():
+            return set()
+        with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
+            return set(line.strip() for line in f if line.strip())
+
 
 def init_storage():
     """Initialize the storage directory structure."""
@@ -64,58 +89,66 @@ def init_storage():
 
 def load_visited_urls() -> set:
     """Load all visited URLs into a set for O(1) lookup."""
-    with _visited_urls_lock:
-        if not VISITED_URLS_FILE.exists():
-            return set()
-        with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
-            return set(line.strip() for line in f if line.strip())
+    global _visited_urls_cache
+    _ensure_visited_cache()
+    with _visited_urls_cache_lock:
+        return _visited_urls_cache.copy()
 
 
 def clear_visited_urls() -> int:
     """Clear all visited URLs. Returns count of cleared URLs."""
-    with _visited_urls_lock:
-        if not VISITED_URLS_FILE.exists():
-            return 0
-        with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
-            count = sum(1 for line in f if line.strip())
-        with open(VISITED_URLS_FILE, 'w', encoding='utf-8') as f:
-            f.write('')
-        return count
+    global _visited_urls_cache
+    with _visited_urls_cache_lock:
+        with _visited_urls_lock:
+            if not VISITED_URLS_FILE.exists():
+                return 0
+            with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
+                count = sum(1 for line in f if line.strip())
+            with open(VISITED_URLS_FILE, 'w', encoding='utf-8') as f:
+                f.write('')
+            _visited_urls_cache = set()
+            return count
 
 
 def clear_visited_urls_by_domain(domain: str) -> int:
     """Clear visited URLs matching a domain. Returns count of cleared URLs."""
-    with _visited_urls_lock:
-        if not VISITED_URLS_FILE.exists():
-            return 0
-        with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
-            urls = [line.strip() for line in f if line.strip()]
+    global _visited_urls_cache
+    with _visited_urls_cache_lock:
+        with _visited_urls_lock:
+            if not VISITED_URLS_FILE.exists():
+                return 0
+            with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
+                urls = [line.strip() for line in f if line.strip()]
 
-        # Filter out URLs matching the domain
-        kept = [url for url in urls if domain not in url]
-        cleared = len(urls) - len(kept)
+            # Filter out URLs matching the domain
+            kept = [url for url in urls if domain not in url]
+            cleared = len(urls) - len(kept)
 
-        with open(VISITED_URLS_FILE, 'w', encoding='utf-8') as f:
-            for url in kept:
-                f.write(url + '\n')
+            with open(VISITED_URLS_FILE, 'w', encoding='utf-8') as f:
+                for url in kept:
+                    f.write(url + '\n')
 
-        return cleared
+            # Update cache
+            if _visited_urls_cache is not None:
+                _visited_urls_cache = set(kept)
+
+            return cleared
 
 
 def is_url_visited(url: str) -> bool:
-    """Check if URL has already been visited."""
-    with _visited_urls_lock:
-        if not VISITED_URLS_FILE.exists():
-            return False
-        with open(VISITED_URLS_FILE, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip() == url:
-                    return True
-        return False
+    """Check if URL has already been visited. Uses in-memory cache for O(1) lookup."""
+    global _visited_urls_cache
+    _ensure_visited_cache()
+    with _visited_urls_cache_lock:
+        return url in _visited_urls_cache
 
 
 def mark_url_visited(url: str) -> None:
-    """Mark a URL as visited by appending to visited_urls.data."""
+    """Mark a URL as visited. Updates both cache and disk."""
+    global _visited_urls_cache
+    _ensure_visited_cache()
+    with _visited_urls_cache_lock:
+        _visited_urls_cache.add(url)
     with _visited_urls_lock:
         with open(VISITED_URLS_FILE, 'a', encoding='utf-8') as f:
             f.write(url + '\n')
@@ -273,20 +306,28 @@ def load_crawler_status(crawler_id: str) -> dict:
 
 
 def append_crawler_log(crawler_id: str, message: str) -> None:
-    """Append a log entry to crawler's log file."""
+    """Append a log entry to crawler's log file. Thread-safe."""
     log_file = CRAWLERS_DIR / crawler_id / "crawler.log"
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    with open(log_file, 'a', encoding='utf-8') as f:
-        f.write(f"[{timestamp}] {message}\n")
+    try:
+        # Ensure directory exists
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with _crawler_log_lock:
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"[{timestamp}] {message}\n")
+                f.flush()
+    except Exception as e:
+        print(f"[LOG ERROR] Failed to write log: {e}")
 
 
 def read_crawler_log(crawler_id: str) -> list:
-    """Read all log entries from crawler's log file."""
+    """Read all log entries from crawler's log file. Thread-safe."""
     log_file = CRAWLERS_DIR / crawler_id / "crawler.log"
     if not log_file.exists():
         return []
-    with open(log_file, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip()]
+    with _crawler_log_lock:
+        with open(log_file, 'r', encoding='utf-8') as f:
+            return [line.strip() for line in f if line.strip()]
 
 
 def save_crawler_queue(crawler_id: str, queue: list) -> None:

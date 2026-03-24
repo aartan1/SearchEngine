@@ -46,3 +46,29 @@ Create three distinct pages in the `demo/` folder:
 
 **Phase 3: Frontend Construction**
 * Build the UI files in the `demo/` folder and connect them to the Flask API. Ensure real-time UI updates for the status page.
+
+## 4. Recent Enhancement Requirements
+
+### 4.1. Fixed High-Performance Configuration
+- Set `self.num_workers = 20` (remove from API/UI parameters)
+- Change default `hit_rate` to 50.0 requests/second
+- Remove `num_workers` from all endpoint parameters
+
+### 4.2. Queue Duplicate Prevention
+- Add `self._queued_urls = set()` to track URLs in queue
+- Check `if url in self._queued_urls` before adding in `_add_to_queue()`
+- Update set when adding/removing from queue
+
+### 4.3. Enhanced Resume from Stopped State
+- Update `resume_crawler_from_disk()` to accept `'stopped'` state (alongside `'running'`, `'paused'`)
+- Modify `resume_crawler()` service to handle both in-memory (paused) and disk-loaded (stopped) crawlers
+- Filter already-visited URLs when resuming: `self._queue = deque((url, depth) for url, depth in self._queue if not is_url_visited(url))`
+
+### 4.4. Auto-Redirect UX Flow
+- Auto-redirect from `/crawler` to `/status?id=<crawler_id>` after creation (1 second delay)
+- Auto-select crawler in status page: `if (initialId) selectCrawler(initialId)` on page load
+
+### 4.5. Registry Cleanup Endpoint
+- Add `clear_inactive_crawlers()` and `clear_all_crawlers()` functions
+- Create `POST /crawler/clear-registry` endpoint with optional `{"all": true}` parameter
+- Import functions in `app.py` and `crawler_service.py`
